@@ -2,6 +2,7 @@ package forwardemail
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/forwardemail/forwardemail-api-go/forwardemail"
 	"github.com/google/go-cmp/cmp"
@@ -53,6 +54,9 @@ func resourceDomain() *schema.Resource {
 		ReadContext:   resourceDomainRead,
 		UpdateContext: resourceDomainUpdate,
 		DeleteContext: resourceDomainDelete,
+		Importer: &schema.ResourceImporter{
+			StateContext: resourceDomainImport,
+		},
 	}
 }
 
@@ -108,6 +112,7 @@ func resourceDomainRead(ctx context.Context, d *schema.ResourceData, meta interf
 	}
 
 	for k, v := range map[string]interface{}{
+		"name":                     domain.Name,
 		"adult_content_protection": domain.HasAdultContentProtection,
 		"phishing_protection":      domain.HasPhishingProtection,
 		"executable_protection":    domain.HasExecutableProtection,
@@ -159,6 +164,23 @@ func resourceDomainDelete(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	return nil
+}
+
+func resourceDomainImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+	client, ok := meta.(*forwardemail.Client)
+	if !ok {
+		return nil, fmt.Errorf("could not get forwardemail client")
+	}
+
+	importID := d.Id()
+
+	domain, err := client.GetDomain(importID)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching domain %q: %w", importID, err)
+	}
+
+	d.SetId(domain.Name)
+	return []*schema.ResourceData{d}, nil
 }
 
 // toBool returns a pointer to the bool value passed in.
